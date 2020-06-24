@@ -1,0 +1,140 @@
+---
+title: "NBA with R"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Introduction
+
+Voici (d'humbles) visualisations réalisées avec R pour le cours de Data Science enseigné dans un contexte de Covid légèrement particulier par monsieur Bonavent.
+
+Par Nils Adamus, Mathias Delaborde, Valentin Gauthier, Santiago Tonoli.
+
+## Statistiques NBA
+
+Petits rappels par rapport à la National Basketball Association : 30 équipes dans une ligue divisée en deux conférence (Ouest et Est). Chaque équipe joue 4 rencontres contre les autres équipes de sa propre conférence et 2 contre celles de l'autre conférence. La moitié de ces matchs est disputé à domicile et l'autre à l'extérieur.
+
+![](nba.jpeg)
+Le csv utilisé pour ce travail est disponible dans le répertoire github.
+Pour chaque ligne, on retrouve un match NBA joué. Et ce depuis 2011.
+
+Concernant le header du set de données : <br>
+GAME_DATE_EST : la date du match <br>
+GAME_ID : l'identifiant du match <br>
+GAME_STATUS_TEXT : le statut du match (qui étrangemment correspond à "final" à chaque fois) <br>
+HOME_TEAM_ID : l'identifiant de l'équipe qui joue à domicile <br>
+VISITOR_TEAM_ID : l'identifiant de l'équipe qui joue à l'extérieur<br>
+SEASON : la saison NBA dont il est question (pour la saison 2019/2020 la valeur est de 2019) <br>
+TEAM_ID_home : l'identifiant de la team à domicile (doublon) <br>
+PTS_home : Points per 100 Possesions (https://stats.nba.com/help/glossary/#pts) de l'équipe à domicile <br>
+FG_PCT_home : Le pourcentage aux tirs de l'équipe à domicile <br>
+FT_PCT_home : Le pourcentage aux lancers-francs de l'équipe à domicile <br>
+FG3_PCT_home : Le pourcentage à 3 points de l'équipe à domicile <br>
+AST_home : le nombre de passes décisives de l'équipe à domicile <br>
+REB_home : le nombre de rebonds de l'équipe à domicile <br>
+TEAM_ID_away : l'identifiant de l'équipe qui joue à l'extérieur <br>
+PTS_away : Points per 100 Possesions (https://stats.nba.com/help/glossary/#pts) de l'équipe à l'extérieur <br>
+FG_PCT_away : le pourcentage aux tirs de l'équipe à l'extérieur <br>
+FT_PCT_away : Le pourcentage aux lancers-francs de l'équipe à l'extérieur <br>
+FG3_PCT_away : Le pourcentage à 3 points de l'équipe à l'extérieur <br>
+AST_away : le nombre de passes décisives de l'équipe à l'extérieur <br>
+REB_away : le nombre de rebonds de l'équipe à domicile à l'extérieur <br>
+HOME_TEAM_WINS : valeur de 1 si l'équipe à domicile <br>
+<br>
+Petite difficulté, le nom des équipes n'est pas explicit. Ce sont ici des ID qui sont utilisés (c'est d'ailleurs le cas à chaque fois lorsqu'on travaille avec les données de la NBA).
+Nous allons corriger cela presque manuellement mais nous aurions pu explorer les données JSON de la NBA (http://data.nba.net/prod/v2/2019/teams.json) et faire des modifications à partir de là.
+<br>
+```{r traitement, include=FALSE}
+library(ggplot2)
+library(tidyr)
+library(ggfittext)
+
+#Importons les données avec le chemin du csv
+nba_header <- read.csv("games.csv", header = TRUE)
+
+#Nettoyons les données en retirant les lignes qui ont des éléments vides
+nba_header %>% drop_na
+
+#Remplacons les Teams_ID par le nom des équipes
+nba_header$HOME_TEAM_ID[nba_header$HOME_TEAM_ID %in% "1610612737"] <- "ATL"
+nba_header$HOME_TEAM_ID[nba_header$HOME_TEAM_ID %in% "1610612751"] <- "BKN"
+nba_header$HOME_TEAM_ID[nba_header$HOME_TEAM_ID %in% "1610612738"] <- "BOS"
+nba_header$HOME_TEAM_ID[nba_header$HOME_TEAM_ID %in% "1610612766"] <- "CHA"
+nba_header$HOME_TEAM_ID[nba_header$HOME_TEAM_ID %in% "1610612741"] <- "CHI"
+nba_header$HOME_TEAM_ID[nba_header$HOME_TEAM_ID %in% "1610612739"] <- "CLE"
+nba_header$HOME_TEAM_ID[nba_header$HOME_TEAM_ID %in% "1610612742"] <- "DAL"
+nba_header$HOME_TEAM_ID[nba_header$HOME_TEAM_ID %in% "1610612743"] <- "DEN"
+nba_header$HOME_TEAM_ID[nba_header$HOME_TEAM_ID %in% "1610612765"] <- "DET"
+nba_header$HOME_TEAM_ID[nba_header$HOME_TEAM_ID %in% "1610612744"] <- "GSW"
+nba_header$HOME_TEAM_ID[nba_header$HOME_TEAM_ID %in% "1610612745"] <- "HOU"
+nba_header$HOME_TEAM_ID[nba_header$HOME_TEAM_ID %in% "1610612754"] <- "IND"
+nba_header$HOME_TEAM_ID[nba_header$HOME_TEAM_ID %in% "1610612746"] <- "LAC"
+nba_header$HOME_TEAM_ID[nba_header$HOME_TEAM_ID %in% "1610612747"] <- "LAL"
+nba_header$HOME_TEAM_ID[nba_header$HOME_TEAM_ID %in% "1610612763"] <- "MEM"
+nba_header$HOME_TEAM_ID[nba_header$HOME_TEAM_ID %in% "1610612748"] <- "MIA"
+nba_header$HOME_TEAM_ID[nba_header$HOME_TEAM_ID %in% "1610612749"] <- "MIL"
+nba_header$HOME_TEAM_ID[nba_header$HOME_TEAM_ID %in% "1610612750"] <- "MIN"
+nba_header$HOME_TEAM_ID[nba_header$HOME_TEAM_ID %in% "1610612740"] <- "NOP"
+nba_header$HOME_TEAM_ID[nba_header$HOME_TEAM_ID %in% "1610612752"] <- "NYK"
+nba_header$HOME_TEAM_ID[nba_header$HOME_TEAM_ID %in% "1610612760"] <- "OKC"
+nba_header$HOME_TEAM_ID[nba_header$HOME_TEAM_ID %in% "1610612753"] <- "ORL"
+nba_header$HOME_TEAM_ID[nba_header$HOME_TEAM_ID %in% "1610612755"] <- "PHI"
+nba_header$HOME_TEAM_ID[nba_header$HOME_TEAM_ID %in% "1610612756"] <- "PHX"
+nba_header$HOME_TEAM_ID[nba_header$HOME_TEAM_ID %in% "1610612757"] <- "POR"
+nba_header$HOME_TEAM_ID[nba_header$HOME_TEAM_ID %in% "1610612758"] <- "SAC"
+nba_header$HOME_TEAM_ID[nba_header$HOME_TEAM_ID %in% "1610612759"] <- "SAS"
+nba_header$HOME_TEAM_ID[nba_header$HOME_TEAM_ID %in% "1610612761"] <- "TOR"
+nba_header$HOME_TEAM_ID[nba_header$HOME_TEAM_ID %in% "1610612762"] <- "UTA"
+nba_header$HOME_TEAM_ID[nba_header$HOME_TEAM_ID %in% "1610612764"] <- "WAS"
+
+nba_header$VISITOR_TEAM_ID[nba_header$VISITOR_TEAM_ID %in% "1610612737"] <- "ATL"
+nba_header$VISITOR_TEAM_ID[nba_header$VISITOR_TEAM_ID %in% "1610612751"] <- "BKN"
+nba_header$VISITOR_TEAM_ID[nba_header$VISITOR_TEAM_ID %in% "1610612738"] <- "BOS"
+nba_header$VISITOR_TEAM_ID[nba_header$VISITOR_TEAM_ID %in% "1610612766"] <- "CHA"
+nba_header$VISITOR_TEAM_ID[nba_header$VISITOR_TEAM_ID %in% "1610612741"] <- "CHI"
+nba_header$VISITOR_TEAM_ID[nba_header$VISITOR_TEAM_ID %in% "1610612739"] <- "CLE"
+nba_header$VISITOR_TEAM_ID[nba_header$VISITOR_TEAM_ID %in% "1610612742"] <- "DAL"
+nba_header$VISITOR_TEAM_ID[nba_header$VISITOR_TEAM_ID %in% "1610612743"] <- "DEN"
+nba_header$VISITOR_TEAM_ID[nba_header$VISITOR_TEAM_ID %in% "1610612765"] <- "DET"
+nba_header$VISITOR_TEAM_ID[nba_header$VISITOR_TEAM_ID %in% "1610612744"] <- "GSW"
+nba_header$VISITOR_TEAM_ID[nba_header$VISITOR_TEAM_ID %in% "1610612745"] <- "HOU"
+nba_header$VISITOR_TEAM_ID[nba_header$VISITOR_TEAM_ID %in% "1610612754"] <- "IND"
+nba_header$VISITOR_TEAM_ID[nba_header$VISITOR_TEAM_ID %in% "1610612746"] <- "LAC"
+nba_header$VISITOR_TEAM_ID[nba_header$VISITOR_TEAM_ID %in% "1610612747"] <- "LAL"
+nba_header$VISITOR_TEAM_ID[nba_header$VISITOR_TEAM_ID %in% "1610612763"] <- "MEM"
+nba_header$VISITOR_TEAM_ID[nba_header$VISITOR_TEAM_ID %in% "1610612748"] <- "MIA"
+nba_header$VISITOR_TEAM_ID[nba_header$VISITOR_TEAM_ID %in% "1610612749"] <- "MIL"
+nba_header$VISITOR_TEAM_ID[nba_header$VISITOR_TEAM_ID %in% "1610612750"] <- "MIN"
+nba_header$VISITOR_TEAM_ID[nba_header$VISITOR_TEAM_ID %in% "1610612740"] <- "NOP"
+nba_header$VISITOR_TEAM_ID[nba_header$VISITOR_TEAM_ID %in% "1610612752"] <- "NYK"
+nba_header$VISITOR_TEAM_ID[nba_header$VISITOR_TEAM_ID %in% "1610612760"] <- "OKC"
+nba_header$VISITOR_TEAM_ID[nba_header$VISITOR_TEAM_ID %in% "1610612753"] <- "ORL"
+nba_header$VISITOR_TEAM_ID[nba_header$VISITOR_TEAM_ID %in% "1610612755"] <- "PHI"
+nba_header$VISITOR_TEAM_ID[nba_header$VISITOR_TEAM_ID %in% "1610612756"] <- "PHX"
+nba_header$VISITOR_TEAM_ID[nba_header$VISITOR_TEAM_ID %in% "1610612757"] <- "POR"
+nba_header$VISITOR_TEAM_ID[nba_header$VISITOR_TEAM_ID %in% "1610612758"] <- "SAC"
+nba_header$VISITOR_TEAM_ID[nba_header$VISITOR_TEAM_ID %in% "1610612759"] <- "SAS"
+nba_header$VISITOR_TEAM_ID[nba_header$VISITOR_TEAM_ID %in% "1610612761"] <- "TOR"
+nba_header$VISITOR_TEAM_ID[nba_header$VISITOR_TEAM_ID %in% "1610612762"] <- "UTA"
+nba_header$VISITOR_TEAM_ID[nba_header$VISITOR_TEAM_ID %in% "1610612764"] <- "WAS"
+```
+<br>
+```{r visualisation, echo=FALSE}
+#Créons un subset pour l'équipe des Golden State Warriors
+GSW <- subset(nba_header, nba_header$HOME_TEAM_ID =="GSW")
+
+#Créons une visualisation pour l'équipe récemment championne des Golden States Warriors
+qplot(VISITOR_TEAM_ID, FG3_PCT_home, main = "Titre", data = GSW, col = ifelse(HOME_TEAM_WINS == 1,'red','green'))+ xlab("Initiales des équipes visiteurs") + ylab("Pourcentage de réussite à 3 points pour Golden State") +labs(colour = 'Matchs de 
+Golden State')
+```
+<br>
+<br>
+Les victoires de Golden State sont ici en vert. Nous n'avons pas bien compris la logique de couleur ici et la légende n'est pas correcte.
+
+Ce graphe nous permet de visualiser l'importance des tirs à 3 points dans les victoires face à chaque équipe de la league pour Golden State. De bons pourcentages vont, logiquement, aboutir à une victoire dans la majorité des cas.
+<br>
+Ce rapide exemple nous aura surtout permis d'utiliser R Markdown et de nous rendre compte de l'importance d'un csv construit correctement. Dans ces données, le fait d'avoir plusieurs matchs par date a rendu l'exercice compliqué lorsque nous avons envisagé d'autres graphiques axés sur la temporalité.
+Nous avons également rencontré des difficultés lorsqu'il a fallu ajuster l'axe des abscisses pour une meilleure lisibilité des noms d'équipes.
